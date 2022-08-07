@@ -1,3 +1,15 @@
+/*
+// ===============================
+// AUTHOR:        Rodland Farms
+// CREATE DATE:   August 7, 2022
+// PURPOSE:       Home plant moisture sensor
+// SPECIAL NOTES: Version 2.0
+// ===============================
+// Change History:
+//
+//==================================
+*/
+
 #include <WiFi.h>
 #include <SPIFFS.h>
 #include <esp32fota.h>
@@ -14,12 +26,12 @@
 #include "ArduinoJson.h"
 #include "provision.h"
 
-#define MINUTES_BETWEEN_SLEEP 1
+// moisture pin number
 #define SENSORPIN 35
-
+// format if not spiffs
 #define FORMAT_SPIFFS_IF_FAILED true
 
-String apiKeyValue = "gwGWZKjADUeHe1f06muhnhdt38pmVwBaNuiyL18WvLHLMeFUZYcqOZqsgvyl";
+String apiKey = "gwGWZKjADUeHe1f06muhnhdt38pmVwBaNuiyL18WvLHLMeFUZYcqOZqsgvyl";
 
 WiFiClient client;
 
@@ -29,7 +41,6 @@ String sensorName;
 String sensorLocation;
 String ssid;
 String pass;
-esp_sleep_wakeup_cause_t wakeup_reason;
 
 // File paths to save input values permanently
 const char *SSID_path = "/ssid.txt";
@@ -42,11 +53,13 @@ const char *lastCapture_path = "/lastCapture.txt";
 unsigned long previousMillis = 0;
 const long one_hour = 3600;
 const long three_min = 180000;
-
-float vpd = 0.00;
 #define uS_TO_S_FACTOR 1000000
 #define TIME_TO_SLEEP 180
+#define MINUTES_BETWEEN_SLEEP 1
 
+esp_sleep_wakeup_cause_t wakeup_reason;
+
+// ota software update
 static const char *server_certificate =
     "-----BEGIN CERTIFICATE-----\n"
     "MIIFFjCCAv6gAwIBAgIRAJErCErPDBinU/bWLiWnX1owDQYJKoZIhvcNAQELBQAw\n"
@@ -80,7 +93,6 @@ static const char *server_certificate =
     "-----END CERTIFICATE-----\n";
 
 int currentVersionNumber = 1658075072;
-
 esp32FOTA esp32FOTA("rodlandFarms", currentVersionNumber);
 
 // bluetooth wireless configuration
@@ -92,6 +104,7 @@ int batterySensorValue;
 float batteryCalibration = 0.36;
 int batPercentage;
 
+// get and calculate moisture value
 String readMoisture()
 {
   const int AirValue = 4095;
@@ -122,51 +135,6 @@ String readFile(fs::FS &fs, const char *path)
   }
   return fileContent;
 }
-/*
-// initialize wi-fi
-bool initWiFi()
-{
-  ssid = readFile(SPIFFS, SSID_path);
-  pass = readFile(SPIFFS, password_path);
-  Serial.print("SSID: ");
-  Serial.println(ssid);
-  Serial.print("Pass: ");
-  Serial.println(pass);
-
-  if (ssid == "" || pass == "")
-  {
-    Serial.println("Undefined SSID.");
-    return false;
-  }
-
-  WiFi.mode(WIFI_STA);
-  WiFi.setHostname(hostname.c_str());
-
-  WiFi.begin(ssid.c_str(), pass.c_str());
-  Serial.print("Connecting to WiFi");
-
-  unsigned long currentMillis = millis();
-  previousMillis = currentMillis;
-
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    Serial.print(".");
-    // wait 10 seconds before re-trying
-    delay(3000);
-    currentMillis = millis();
-    if (currentMillis - previousMillis >= three_min)
-    {
-      Serial.println();
-      Serial.println("Failed to connect");
-      // delay(500);
-      Serial.println("Going to sleep now");
-      delay(500);
-      Serial.flush();
-      esp_deep_sleep_start();
-    }
-  }
-  return true;
-} */
 
 // write bluetooth WIFI configuration values to file
 void writeFile(fs::FS &fs, const char *path, const char *message)
@@ -188,6 +156,7 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
     Serial.println("− frite failed");
   }
 }
+// get current power level
 String battery()
 {
   batterySensorValue = analogRead(batteryPin);
@@ -217,12 +186,12 @@ void uploadReadings()
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
 
   // Prepare HTTP POST request data (post data will be determined by sensor that are detected
-  String httpRequestData = "api_token=" + apiKeyValue +
+  String httpRequestData = "api_token=" + apiKey +
                            "&hostname=" + hostname +
                            "&sensor=" + sensorName +
                            "&location=" + sensorLocation +
                            "&moisture=" + String(readMoisture()) +
-                           "&batt=" + battery();
+                           "&batt=" + String(battery());
 
   // Send HTTP POST request
   int httpResponseCode = http.POST(httpRequestData);
@@ -240,9 +209,7 @@ void uploadReadings()
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
-  // Free resources and go to sleep
   http.end();
-  delay(500);
 }
 
 // http events for over the air firmware update
@@ -341,94 +308,10 @@ void checkUpdate()
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
   }
-  // Free resources and go to sleep
+
   http.end();
 }
-/*
-void initBlueTooth()
-{
-  Serial.print("Hostname:\t");
-  Serial.println(hostname);
-  SerialBT.register_callback(BTcallback);
-  SerialBT.begin("RodlandFarms-" + hostname);
-  Serial.println(F("The device started, now you can pair it with bluetooth!"));
-  Serial.println("Enter wifi Name");
-ab:
-  if (Serial.available())
-  {
-    SerialBT.write(Serial.read());
-  }
-  if (SerialBT.available())
-  {
-    ssid = SerialBT.readString();
-    // Write value to file
-    writeFile(SPIFFS, SSID_path, ssid.c_str());
-  }
-  else
-  {
-    goto ab;
-  }
 
-  Serial.println("Enter password");
-ac:
-  if (Serial.available())
-  {
-    SerialBT.write(Serial.read());
-  }
-  if (SerialBT.available())
-  {
-    pass = SerialBT.readString().c_str();
-    // Write value to file
-    writeFile(SPIFFS, password_path, pass.c_str());
-  }
-  else
-  {
-    goto ac;
-  }
-
-  Serial.println("Enter plant name");
-ad:
-  if (Serial.available())
-  {
-    SerialBT.write(Serial.read());
-  }
-  if (SerialBT.available())
-  {
-    sensorName = SerialBT.readString().c_str();
-    // Write value to file
-    writeFile(SPIFFS, sensorName_path, sensorName.c_str());
-  }
-  else
-  {
-    goto ad;
-  }
-
-  Serial.println("Enter plant location");
-ae:
-  if (Serial.available())
-  {
-    SerialBT.write(Serial.read());
-  }
-  if (SerialBT.available())
-  {
-    sensorLocation = SerialBT.readString().c_str();
-    // Write value to file
-    writeFile(SPIFFS, sensorLocation_path, sensorLocation.c_str());
-  }
-  else
-  {
-    goto ae;
-  }
-  Serial.print("Saved SSID: ");
-  Serial.println(ssid);
-  Serial.print("Saved pass: ");
-  Serial.println(pass);
-  if (ssid != "" && pass != "")
-  {
-    ESP.restart();
-  }
-}
-*/
 void setup()
 {
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
@@ -452,40 +335,18 @@ void setup()
     return;
   }
 
-  // if (!initWiFi())
-  // {
-  //   initBlueTooth();
-  //   unsigned long currentMillis = millis();
-  //   previousMillis = currentMillis;
-  //   while (WiFi.status() != WL_CONNECTED) {
-  //     Serial.print(".");
-  //     delay(3000);
-  //     currentMillis = millis();
-  //     if (currentMillis - previousMillis >= three_min) {
-  //       Serial.println("Failed to connect.");
-  //       //delay(500);
-  //       Serial.println("Going to sleep now");
-  //       delay(500);
-  //       Serial.flush();
-  //       esp_deep_sleep_start();
-  //     }
-  //   }
-  // }
-  // your code above is commented out so that you can remove it as required.
-  prov_main(); // function that is responsible for provisioning through BLE and Wifi connection
-  // Program will wait here until it has been provisioned and connected with wifi
+  prov_main(); // provision wifi via ble
 
-
-  // else
-  // {
   //checkUpdate();
-  delay(3000);
+  //delay(3000);
   hostname = WiFi.macAddress();
   hostname.replace(":", ""); // remove : from mac address
+
   sensorName = readFile(SPIFFS, sensorName_path).c_str();
   sensorLocation = readFile(SPIFFS, sensorLocation_path).c_str();
+
   uploadReadings();
-  // }
+
   Serial.println("Going to sleep now");
   delay(500);
   Serial.flush();
