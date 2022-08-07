@@ -92,7 +92,7 @@ static const char *server_certificate =
     "nLRbwHOoq7hHwg==\n"
     "-----END CERTIFICATE-----\n";
 
-int currentVersionNumber = 1658075072;
+int currentVersionNumber = 1659916189;
 esp32FOTA esp32FOTA("rodlandFarms", currentVersionNumber);
 
 // bluetooth wireless configuration
