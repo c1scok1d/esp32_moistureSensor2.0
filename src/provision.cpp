@@ -214,7 +214,7 @@ void prov_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL));
 
-    /* Initialize Wi-Fi including netif with default config */
+    /* Initialize Wi-Fi including netif with defaulmmedt config */
     esp_netif_create_default_wifi_sta();
     // #ifdef CONFIG_EXAMPLE_PROV_TRANSPORT_SOFTAP
     //     esp_netif_create_default_wifi_ap();
@@ -278,7 +278,7 @@ void prov_main(void)
          *          using X25519 key exchange and proof of possession (pop) and AES-CTR
          *          for encryption/decryption of messages.
          */
-        wifi_prov_security_t security = WIFI_PROV_SECURITY_1;
+        wifi_prov_security_t security = WIFI_PROV_SECURITY_0;
 
         /* Do we want a proof-of-possession (ignored if Security 0 is selected):
          *      - this should be a string with length > 0
