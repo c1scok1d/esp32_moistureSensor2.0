@@ -23,6 +23,7 @@
 
 #include <wifi_provisioning/scheme_ble.h>
 #include "provision.h"
+#include "ArduinoJson.h"
 
 #define CONFIG_EXAMPLE_RESET_PROVISIONED 0
 #define CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE 1
@@ -147,18 +148,44 @@ esp_err_t custom_prov_data_handler(uint32_t session_id, const uint8_t *inbuf, ss
     if (inbuf)
     {
         printf("Received data: %.*s\n", inlen, (char *)inbuf);
-    }
-    char response[] = "SUCCESS";
-    *outbuf = (uint8_t *)strdup(response);
-    if (*outbuf == NULL)
-    {
-        ESP_LOGE(TAG, "System out of memory");
-        return ESP_ERR_NO_MEM;
-    }
-    *outlen = strlen(response) + 1; /* +1 for NULL terminating byte */
+       
+        StaticJsonDocument<200> doc;
+        // Deserialize the JSON document
+        DeserializationError error = deserializeJson(doc, inbuf);
 
-    return ESP_OK;
-}
+        // Test if parsing succeeds.
+        if (error) {
+            Serial.print(F("deserializeJson() failed: "));
+            Serial.println(error.f_str());
+            //return(error.f_str());
+        }
+
+        // Fetch values.
+        //
+        // Most of the time, you can rely on the implicit casts.
+        // In other case, you can do doc["time"].as<long>();
+        const char* sensor = doc["name"];
+        const char* location = doc["location"];
+        //double latitude = doc["data"][0];
+        //double longitude = doc["data"][1];
+
+        // Print values.
+        Serial.println(sensor);
+        Serial.println(location);
+        //Serial.println(latitude, 6);
+        //Serial.println(longitude, 6); 
+            }
+            char response[] = "SUCCESS";
+            *outbuf = (uint8_t *)strdup(response);
+            if (*outbuf == NULL)
+            {
+                ESP_LOGE(TAG, "System out of memory");
+                return ESP_ERR_NO_MEM;
+            }
+            *outlen = strlen(response) + 1; /* +1 for NULL terminating byte */
+
+            return ESP_OK;
+        }
 
 static void wifi_prov_print_qr(const char *name, const char *pop, const char *transport)
 {

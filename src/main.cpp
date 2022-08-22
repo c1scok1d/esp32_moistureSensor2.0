@@ -47,7 +47,7 @@ const char *SSID_path = "/ssid.txt";
 const char *password_path = "/pass.txt";
 const char *sensorName_path = "/name.txt";
 const char *sensorLocation_path = "/location.txt";
-const char *lastCapture_path = "/lastCapture.txt";
+//const char *lastCapture_path = "/lastCapture.txt";
 
 // Timer variables
 unsigned long previousMillis = 0;
