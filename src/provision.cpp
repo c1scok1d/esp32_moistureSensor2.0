@@ -24,6 +24,10 @@
 #include <wifi_provisioning/scheme_ble.h>
 #include "provision.h"
 #include "ArduinoJson.h"
+#include <SPIFFS.h>
+
+//const char *sensorName_path = "/name.txt";
+//const char *sensorLocation_path = "/location.txt";
 
 #define CONFIG_EXAMPLE_RESET_PROVISIONED 0
 #define CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE 1
@@ -138,6 +142,27 @@ static void get_device_service_name(char *service_name, size_t max)
              ssid_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
 }
 
+// write bluetooth WIFI configuration values to file
+static void writeFile(fs::FS &fs, const char *path, const char *message)
+{
+  Serial.printf("Writing file: %s\r\n", path);
+
+  File file = fs.open(path, FILE_WRITE);
+  if (!file)
+  {
+    Serial.println("− failed to open file for writing");
+    return;
+  }
+  if (file.print(message))
+  {
+    Serial.println("− file written");
+  }
+  else
+  {
+    Serial.println("− frite failed");
+  }
+} 
+
 /* Handler for the optional provisioning endpoint registered by the application.
  * The data format can be chosen by applications. Here, we are using plain ascii text.
  * Applications can choose to use other formats like protobuf, JSON, XML, etc.
@@ -160,20 +185,17 @@ esp_err_t custom_prov_data_handler(uint32_t session_id, const uint8_t *inbuf, ss
             //return(error.f_str());
         }
 
-        // Fetch values.
-        //
-        // Most of the time, you can rely on the implicit casts.
-        // In other case, you can do doc["time"].as<long>();
+
         const char* sensor = doc["name"];
+        // fetch and write values to file
+        //writeFile(SPIFFS, sensorName_path, sensor);
+
         const char* location = doc["location"];
-        //double latitude = doc["data"][0];
-        //double longitude = doc["data"][1];
+        //writeFile(SPIFFS, sensorLocation_path, location);
 
         // Print values.
         Serial.println(sensor);
-        Serial.println(location);
-        //Serial.println(latitude, 6);
-        //Serial.println(longitude, 6); 
+        Serial.println(location); 
             }
             char response[] = "SUCCESS";
             *outbuf = (uint8_t *)strdup(response);
