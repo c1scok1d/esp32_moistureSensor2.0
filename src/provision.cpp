@@ -116,6 +116,7 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         printf("Connected with IP Address: " IPSTR"\n", IP2STR(&event->ip_info.ip));
+        printf("Connected with IP Address: " IPSTR"\n", IP2STR(&event->ip_info.gw));
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
     }
@@ -135,11 +136,11 @@ static void wifi_init_sta(void)
 
 static void get_device_service_name(char *service_name, size_t max)
 {
-    uint8_t eth_mac[6];
+    uint8_t eth_mac[18];
     const char *ssid_prefix = "Rodland Farms_";
     esp_wifi_get_mac(WIFI_IF_STA, eth_mac);
     snprintf(service_name, max, "%s%02X%02X%02X",
-             ssid_prefix, eth_mac[3], eth_mac[4], eth_mac[5]);
+             ssid_prefix, eth_mac[5], eth_mac[6], eth_mac[7]);
 }
 
 // write bluetooth WIFI configuration values to file

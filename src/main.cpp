@@ -178,7 +178,7 @@ String battery()
 // upload sensor readings to api
 void uploadReadings()
 {
-  const char *serverName = "http://athome.rodlandfarms.com";
+  const char *serverName = "athome.rodlandfarms.com";
   String path = "/api/esp/data";
 
   HTTPClient http;
