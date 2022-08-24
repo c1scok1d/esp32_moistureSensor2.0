@@ -26,8 +26,8 @@
 #include "ArduinoJson.h"
 #include <SPIFFS.h>
 
-//const char *sensorName_path = "/name.txt";
-//const char *sensorLocation_path = "/location.txt";
+const char *deviceName = "/name.txt";
+const char *deviceLocation = "/location.txt";
 
 #define CONFIG_EXAMPLE_RESET_PROVISIONED 0
 #define CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE 1
@@ -116,7 +116,6 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     {
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         printf("Connected with IP Address: " IPSTR"\n", IP2STR(&event->ip_info.ip));
-        printf("Connected with IP Address: " IPSTR"\n", IP2STR(&event->ip_info.gw));
         /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
     }
@@ -189,10 +188,10 @@ esp_err_t custom_prov_data_handler(uint32_t session_id, const uint8_t *inbuf, ss
 
         const char* sensor = doc["name"];
         // fetch and write values to file
-        //writeFile(SPIFFS, sensorName_path, sensor);
+        writeFile(SPIFFS, deviceName, sensor);
 
         const char* location = doc["location"];
-        //writeFile(SPIFFS, sensorLocation_path, location);
+        writeFile(SPIFFS, deviceLocation, location);
 
         // Print values.
         Serial.println(sensor);
