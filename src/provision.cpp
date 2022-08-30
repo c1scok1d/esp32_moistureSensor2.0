@@ -25,11 +25,17 @@
 #include "provision.h"
 #include "ArduinoJson.h"
 #include <SPIFFS.h>
+#include "lwip/inet.h"
+#include "lwip/ip4_addr.h"
+#include "lwip/dns.h"
+#include "lwip/ip_addr.h"
+#include <ESP32Ping.h>
+
 
 const char *deviceName = "/name.txt";
 const char *deviceLocation = "/location.txt";
 
-#define CONFIG_EXAMPLE_RESET_PROVISIONED 0
+//#define CONFIG_EXAMPLE_RESET_PROVISIONED 0
 #define CONFIG_EXAMPLE_RESET_PROV_MGR_ON_FAILURE 1
 #define CONFIG_EXAMPLE_PROV_MGR_MAX_RETRY_CNT 5
 #define CONFIG_EXAMPLE_PROV_SHOW_QR 1
@@ -53,6 +59,9 @@ static EventGroupHandle_t wifi_event_group;
 #define PROV_TRANSPORT_SOFTAP "softap"
 #define PROV_TRANSPORT_BLE "ble"
 #define QRCODE_BASE_URL "https://espressif.github.io/esp-jumpstart/qrcode.html"
+
+const char* remote_host = "8.8.8.8";
+//const char* remote_host = "google.com";
 
 /* Event handler for catching system events */
 static void event_handler(void *arg, esp_event_base_t event_base,
@@ -114,12 +123,34 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     }
     else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP)
     {
+        ip_addr_t dnsserver;
+		IP_ADDR4(&dnsserver, 8, 8, 8, 8);
+        
         ip_event_got_ip_t *event = (ip_event_got_ip_t *)event_data;
         printf("Connected with IP Address: " IPSTR"\n", IP2STR(&event->ip_info.ip));
-        /* Signal main application to continue execution */
+        printf("Connected with IP NetMask: " IPSTR"\n", IP2STR(&event->ip_info.netmask));
+        printf("Connected with IP Gateway: " IPSTR"\n", IP2STR(&event->ip_info.gw));
+        
+        dns_setserver(0,&dnsserver);
+        const ip_addr_t *dns_ip_addr = dns_getserver(0);
+        printf("Nameserver: %s\n", inet_ntoa( dns_ip_addr ) );
+        const ip_addr_t *dns_ip_addr1 = dns_getserver(1);
+        printf("Nameserver: %s\n", inet_ntoa( dns_ip_addr1 ) );
+        const ip_addr_t *dns_ip_addr2 = dns_getserver(2);
+        printf("Nameserver: %s\n", inet_ntoa( dns_ip_addr2 ) );
+        
+        Serial.print("Pinging host ");
+        Serial.println(remote_host);
+
+        if(Ping.ping(remote_host)) {
+            Serial.println("Success!!");
+             /* Signal main application to continue execution */
         xEventGroupSetBits(wifi_event_group, WIFI_CONNECTED_EVENT);
+        } else {
+            Serial.println("Error :(");
+        }
     }
-    else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
         printf("Disconnected. Connecting to the AP again...\n");
         esp_wifi_connect();

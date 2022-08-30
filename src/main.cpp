@@ -11,6 +11,7 @@
 */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <SPIFFS.h>
 #include <esp32fota.h>
 #include <Arduino.h>
@@ -178,7 +179,7 @@ String battery()
 // upload sensor readings to api
 void uploadReadings()
 {
-  const char *serverName = "athome.rodlandfarms.com";
+   const char *serverName = "athome.rodlandfarms.com";
   String path = "/api/esp/data";
 
   HTTPClient http;
