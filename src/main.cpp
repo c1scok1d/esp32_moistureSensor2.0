@@ -26,6 +26,7 @@
 #include "soc/rtc_cntl_reg.h"
 #include "ArduinoJson.h"
 #include "provision.h"
+#include "rest_methods.h"
 
 // moisture pin number
 #define SENSORPIN 35
@@ -179,12 +180,9 @@ String battery()
 // upload sensor readings to api
 void uploadReadings()
 {
-   const char *serverName = "athome.rodlandfarms.com";
-  String path = "/api/esp/data";
-
-  HTTPClient http;
-  http.begin(serverName + path);
-  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+   const char *serverName = "http://athome.rodlandfarms.com";
+  String server_path = "/api/esp/data";
+  String server_uri = serverName + server_path;
 
   // Prepare HTTP POST request data (post data will be determined by sensor that are detected
   String httpRequestData = "api_token=" + apiKey +
@@ -195,22 +193,7 @@ void uploadReadings()
                            "&batt=" + String(battery());
 
   // Send HTTP POST request
-  int httpResponseCode = http.POST(httpRequestData);
-
-  if (httpResponseCode == 200)
-  {
-    Serial.println(httpRequestData);
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
-    Serial.println(http.getString());
-  }
-  else
-  {
-    Serial.println(httpRequestData);
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
-  }
-  http.end();
+  int httpResponseCode = POST(server_uri, httpRequestData);
 }
 
 // http events for over the air firmware update
@@ -262,9 +245,6 @@ void checkUpdate()
 
   if (httpResponseCode == 200)
   {
-    // Serial.println(serverName + path);
-    // Serial.print("HTTP Response code: ");
-    // Serial.println(httpResponseCode);
     if (doc["version"].as<String>() != String(currentVersionNumber))
     {
       String firmwareVersion = doc["version"];
@@ -338,8 +318,6 @@ void setup()
 
   prov_main(); // provision wifi via ble
 
-  //checkUpdate();
-  //delay(3000);
   hostname = WiFi.macAddress();
   hostname.replace(":", ""); // remove : from mac address
 
