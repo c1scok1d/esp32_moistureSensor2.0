@@ -28,8 +28,6 @@
 #include "provision.h"
 #include "rest_methods.h"
 
-// moisture pin number
-#define SENSORPIN 35
 // format if not spiffs
 #define FORMAT_SPIFFS_IF_FAILED true
 
@@ -100,17 +98,13 @@ esp32FOTA esp32FOTA("rodlandFarms", currentVersionNumber);
 // bluetooth wireless configuration
 BluetoothSerial SerialBT;
 
-// battery meter
-#define batteryPin 34 
-int batterySensorValue;
-float batteryCalibration = 0.36;
-int batPercentage;
-
 // get and calculate moisture value
+// moisture pin number
+#define SENSORPIN 35
 String readMoisture()
 {
-  const int AirValue = 4095;
-  const int WaterValue = 1535;
+  const int AirValue = 0;
+  const int WaterValue = 4095;
   int reading = analogRead(SENSORPIN);
   Serial.print("\nMoisture Reading: ");
   Serial.println(reading);
@@ -159,6 +153,11 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
   }
 }
 // get current power level
+// battery meter
+#define batteryPin 34 
+int batterySensorValue;
+float batteryCalibration = 0.36;
+int batPercentage;
 String battery()
 {
   batterySensorValue = analogRead(batteryPin);

@@ -29,7 +29,6 @@
 #include "lwip/ip4_addr.h"
 #include "lwip/dns.h"
 #include "lwip/ip_addr.h"
-#include <ESP32Ping.h>
 
 
 const char *deviceName = "/name.txt";
@@ -60,8 +59,6 @@ static EventGroupHandle_t wifi_event_group;
 #define PROV_TRANSPORT_BLE "ble"
 #define QRCODE_BASE_URL "https://espressif.github.io/esp-jumpstart/qrcode.html"
 
-const char* remote_host = "8.8.8.8";
-//const char* remote_host = "google.com";
 
 /* Event handler for catching system events */
 static void event_handler(void *arg, esp_event_base_t event_base,
@@ -433,7 +430,9 @@ void prov_main(void)
     /* Start main application now */
     // while (1)
     // {
-    //     printf("Hello World!\n");
+    //    String hostname = WiFi.macAddress();
+    //    hostname.replace(":", ""); // remove : from mac address
+    //     printf("%s\n",hostname);
     //     vTaskDelay(1000 / portTICK_PERIOD_MS);
     // }
 }
