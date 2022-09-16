@@ -155,26 +155,32 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
 // get current power level
 // battery meter
 #define batteryPin 34 
-int batterySensorValue;
-float batteryCalibration = 0.36;
+float batterySensorValue;
+//float batteryCalibration = 0.36;
 int batPercentage;
 String battery()
 {
+  #define BATTV_MAX    3.0     // maximum voltage of battery
+  #define BATTV_MIN    2.0     // what we regard as an empty battery
+  #define BATTV_LOW    3.4     // voltage considered to be low battery
+
   batterySensorValue = analogRead(batteryPin);
-  float voltage = (((batterySensorValue * 3.3) / 1024) * 2 + batteryCalibration);
-  batPercentage = map(voltage, 2.8, 4.2, 0, 100);
-  if (batPercentage >= 100)
+  float voltage = (batterySensorValue / 4095) * 3.3 *2 *1.05;
+  int battpc = (uint8_t)(((voltage - BATTV_MIN) / (BATTV_MAX - BATTV_MIN)) * 100);
+  if (battpc >= 100)
   {
-    batPercentage = 100;
+    battpc = 100;
   }
-  if (batPercentage <= 0)
+  if (battpc <= 0)
   {
-    batPercentage = 1;
+    battpc = 1;
   }
 
   Serial.print("Battery Percentage: ");
-  Serial.println(batPercentage);
-  return String(batPercentage);
+  Serial.println(battpc);
+  //Serial.println(batterySensorValue);
+  //Serial.println(voltage);
+  return String(battpc);
 }
 // upload sensor readings to api
 void uploadReadings()
