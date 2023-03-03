@@ -9,8 +9,6 @@
 //
 //==================================
 */
-
-
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <SPIFFS.h>
@@ -29,26 +27,12 @@
 #include "ArduinoJson.h"
 #include "provision.h"
 #include "rest_methods.h"
-
-
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"
 #include "freertos/event_groups.h"
-//#include "esp_wifi.h"
-//#include "esp_log.h"
-//#include "nvs_flash.h"
-//#include "esp_netif.h"
 #include "esp_http_client.h"
-//#include "my_data.h"
-
-#define macro_name
-#ifdef macro_name
-
-  //Serial.print("\nThis is a relay for water pumps ");
-
-#endif
 
 // format if not spiffs
 #define FORMAT_SPIFFS_IF_FAILED true
@@ -73,12 +57,11 @@ const char *sensorLocation_path = "/location.txt";
 //const char *lastCapture_path = "/lastCapture.txt";
 
 // Timer variables
-unsigned long previousMillis = 0;
-const long one_hour = 3600;
-const long three_min = 180000;
+//unsigned long previousMillis = 0;
+//const long one_hour = 3600;
+//const long three_min = 180000;
 #define uS_TO_S_FACTOR 1000000
 #define TIME_TO_SLEEP 60
-#define MINUTES_BETWEEN_SLEEP 1
 
 esp_sleep_wakeup_cause_t wakeup_reason;
 
@@ -164,10 +147,11 @@ esp_sleep_wakeup_cause_t wakeup_reason;
   // get and calculate moisture value
   String readMoisture()
     {
-      //#define SENSORPIN 35
+      #define SENSORPIN 35
       int AirValue = 0;
-      int WaterValue = 3170;
-      int reading = analogRead(35);
+      int WaterValue = 4095;
+      int reading = analogRead(SENSORPIN);
+      delay(500);
 
       Serial.print("\nMoisture Reading: ");
       Serial.println(reading);
@@ -214,10 +198,12 @@ esp_sleep_wakeup_cause_t wakeup_reason;
                               "&location=" + sensorLocation +
                               "&moisture=" + moisture +
                               "&batt=" + String(battery());
-      // Send HTTP POST request
-      int httpResponseCode = POST(server_uri, httpRequestData);
 
-      return String(httpResponseCode);
+      if ( moisture != "0"){
+        // Send HTTP POST request
+        int httpResponseCode = POST(server_uri, httpRequestData);
+        } 
+      return String(httpRequestData);   
     }
 
   // http events for over the air firmware update
@@ -339,7 +325,7 @@ esp_sleep_wakeup_cause_t wakeup_reason;
         Serial.println("An Error has occurred while mounting SPIFFS");
         return;
       }
-      prov_main(); // provision wifi via ble
+      prov_main(); // if provisioned start wifi, otherwise provision wifi via ble
 
       hostname = WiFi.macAddress();
       hostname.replace(":", ""); // remove : from mac address

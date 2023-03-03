@@ -125,6 +125,12 @@ static void event_handler(void *arg, esp_event_base_t event_base,
     } 
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED)
     {
+        retries++;
+            if (retries >= CONFIG_EXAMPLE_PROV_MGR_MAX_RETRY_CNT){
+                Serial.println("Going to sleep now");
+                retries = 0;
+                esp_deep_sleep_start();
+            }
         printf("Disconnected. Connecting to the AP again...\n");
         esp_wifi_connect();
     }
@@ -424,16 +430,10 @@ void prov_main(void)
         wifi_init_sta();
     }
 
+    int counter = 0; //Create a variable named counter, that is an integer (whole number) and has a starting value of 0g
+    Serial.println(counter); //'print' the value of the counter variable on the serial monitor
+    delay(1000); //delay 1000 milliseconds (1 second)
+    counter++; // add one to the counter variable with ++
     /* Wait for Wi-Fi connection */
     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, false, true, portMAX_DELAY);
-
-    /* Start main application now */
-    // while (1)
-    // {
-    //    String hostname = WiFi.macAddress();
-    //    hostname.replace(":", ""); // remove : from mac address
-    //     printf("%s\n",hostname);
-    //     vTaskDelay(1000 / portTICK_PERIOD_MS);
-    // }
-
 }

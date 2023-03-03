@@ -121,10 +121,10 @@ int Pangodream_18650_CL::_getChargeLevel(double volts){
   int idx = 50;
   int prev = 0;
   int half = 0;
-  if (volts >= 3.7){
+  if (volts >= 3.3){
     return 100;
   }
-  if (volts <= 3.2){
+  if (volts <= 2.3){
     return 0;
   }
   while(true){
