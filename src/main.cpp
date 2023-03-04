@@ -145,7 +145,7 @@ esp_sleep_wakeup_cause_t wakeup_reason;
     }
 
   // get and calculate moisture value
-  String readMoisture()
+  int readMoisture()
     {
       #define SENSORPIN 35
       int AirValue = 0;
@@ -163,11 +163,11 @@ esp_sleep_wakeup_cause_t wakeup_reason;
       if (moisture > 100){
           moisture =  100;
        }
-      return String(moisture);
+      return moisture;
     }
     
   // get current power level
-  String battery()
+  int getBattery()
     {
       //#define SENSORPIN 34
       Serial.print("\nBattery Reading: ");
@@ -180,29 +180,26 @@ esp_sleep_wakeup_cause_t wakeup_reason;
       Serial.println(BL.getBatteryChargeLevel());
       Serial.println("");
 
-      return String(BL.getBatteryChargeLevel());
+      return BL.getBatteryChargeLevel();
     }
 
   // upload sensor readings to api
-  String uploadReadings()
+  String uploadReadings(int moisture, int battery)
     {
       const char *serverName = "http://athome.rodlandfarms.com";
       String server_path = "/api/esp/data";
       String server_uri = serverName + server_path;
-      String moisture = readMoisture();
 
       // Prepare HTTP POST request data (post data will be determined by sensor that are detected
       String httpRequestData = "api_token=" + apiKey +
                               "&hostname=" + hostname +
                               "&sensor=" + sensorName +
                               "&location=" + sensorLocation +
-                              "&moisture=" + moisture +
-                              "&batt=" + String(battery());
-
-      if ( moisture != "0"){
+                              "&moisture=" + String(moisture) +
+                              "&batt=" + String(battery);
         // Send HTTP POST request
         int httpResponseCode = POST(server_uri, httpRequestData);
-        } 
+
       return String(httpRequestData);   
     }
 
@@ -309,32 +306,43 @@ esp_sleep_wakeup_cause_t wakeup_reason;
       Serial.begin(115200);
       delay(500);
 
-      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
       Serial.println("-------------------------------------");
       Serial.println("       Rodland Farms @HOME           ");
       Serial.print("       Version: ");
       Serial.println(currentVersionNumber);
       Serial.println("-------------------------------------");
       Serial.println();
+      
+      // set sleep timer
+      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 
+      // set up OTA firmware update URL
       esp32FOTA.checkURL = "http://athome.rodlandfarms.com/firmware.json";
-      SPIFFS.begin(true);
 
+      // check and load SPIFFS file system
+      SPIFFS.begin(true);
       if (!SPIFFS.begin((FORMAT_SPIFFS_IF_FAILED)))
       {
         Serial.println("An Error has occurred while mounting SPIFFS");
         return;
       }
-      prov_main(); // if provisioned start wifi, otherwise provision wifi via ble
 
-      hostname = WiFi.macAddress();
-      hostname.replace(":", ""); // remove : from mac address
+      // get moisture and battery level readings
+      int moisture = readMoisture();
+      int battery = getBattery();
 
-      sensorName = readFile(SPIFFS, sensorName_path).c_str();
-      sensorLocation = readFile(SPIFFS, sensorLocation_path).c_str();
-      
-      uploadReadings();
+      // if moisture value is not 0 
+      if (moisture != 0) {
+        prov_main(); // if provisioned start wifi, otherwise provision wifi via ble
 
+        hostname = WiFi.macAddress();
+        hostname.replace(":", ""); // remove : from mac address
+
+        sensorName = readFile(SPIFFS, sensorName_path).c_str();
+        sensorLocation = readFile(SPIFFS, sensorLocation_path).c_str();
+        
+        uploadReadings(moisture, battery);
+      }
       Serial.println("Going to sleep now");
       esp_deep_sleep_start();
       }
