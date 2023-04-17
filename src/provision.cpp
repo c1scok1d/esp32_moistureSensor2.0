@@ -328,7 +328,7 @@ void prov_main(void)
          *     - Wi-Fi SSID when scheme is wifi_prov_scheme_softap
          *     - device name when scheme is wifi_prov_scheme_ble
          */
-        char service_name[20];
+        char service_name[40];
         get_device_service_name(service_name, sizeof(service_name));
 
         /* What is the security level that we want (0 or 1):
@@ -430,10 +430,6 @@ void prov_main(void)
         wifi_init_sta();
     }
 
-    int counter = 0; //Create a variable named counter, that is an integer (whole number) and has a starting value of 0g
-    Serial.println(counter); //'print' the value of the counter variable on the serial monitor
-    delay(1000); //delay 1000 milliseconds (1 second)
-    counter++; // add one to the counter variable with ++
     /* Wait for Wi-Fi connection */
     xEventGroupWaitBits(wifi_event_group, WIFI_CONNECTED_EVENT, false, true, portMAX_DELAY);
 }

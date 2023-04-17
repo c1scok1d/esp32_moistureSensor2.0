@@ -18,7 +18,6 @@
 #include <Wire.h>
 #include <DHT.h>
 #include <HTTPClient.h>
-#include "Pangodream_18650_CL.h"
 #include "BluetoothSerial.h"
 #include "HttpsOTAUpdate.h"
 #include "Update.h"
@@ -40,33 +39,16 @@
 String apiKey = "gwGWZKjADUeHe1f06muhnhdt38pmVwBaNuiyL18WvLHLMeFUZYcqOZqsgvyl";
 
 WiFiClient client;
-Pangodream_18650_CL BL;
 
 // Variables to save values from bluetooh setup
-String hostname;
-String sensorName;
-String sensorLocation;
-String ssid;
-String pass;
-
-// File paths to save input values permanently
-const char *SSID_path = "/ssid.txt";
-const char *password_path = "/pass.txt";
-const char *sensorName_path = "/name.txt";
-const char *sensorLocation_path = "/location.txt";
-//const char *lastCapture_path = "/lastCapture.txt";
-
-// Timer variables
-//unsigned long previousMillis = 0;
-//const long one_hour = 3600;
-//const long three_min = 180000;
-#define uS_TO_S_FACTOR 1000000
-#define TIME_TO_SLEEP 60
-
-esp_sleep_wakeup_cause_t wakeup_reason;
+// String hostname;
+// String sensorName;
+// String sensorLocation;
+// String ssid;
+// String pass;
 
 // ota software update
-  static const char *server_certificate =
+static const char *server_certificate =
     "-----BEGIN CERTIFICATE-----\n"
     "MIIFFjCCAv6gAwIBAgIRAJErCErPDBinU/bWLiWnX1owDQYJKoZIhvcNAQELBQAw\n"
     "TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh\n"
@@ -98,254 +80,281 @@ esp_sleep_wakeup_cause_t wakeup_reason;
     "nLRbwHOoq7hHwg==\n"
     "-----END CERTIFICATE-----\n";
 
-  int currentVersionNumber = 1659916189;
-  esp32FOTA esp32FOTA("rodlandFarms", currentVersionNumber);
+int currentVersionNumber = 1659916189;
+esp32FOTA esp32FOTA("rodlandFarms", currentVersionNumber);
 
-  // bluetooth wireless configuration
-  BluetoothSerial SerialBT;
+// bluetooth wireless configuration
+BluetoothSerial SerialBT;
 
-  // Read wifi configuration values from file
-  String readFile(fs::FS &fs, const char *path)
+// Read wifi configuration values from file
+String readFile(fs::FS &fs, const char *path)
+{
+  File file = fs.open(path);
+  if (!file || file.isDirectory())
+  {
+    Serial.println("- failed to open file for reading");
+    return String();
+  }
+
+  String fileContent;
+  while (file.available())
+  {
+    fileContent = file.readStringUntil('\n');
+    break;
+  }
+  return fileContent;
+}
+
+// write bluetooth WIFI configuration values to file
+void writeFile(fs::FS &fs, const char *path, const char *message)
+{
+  Serial.printf("Writing file: %s\r\n", path);
+
+  File file = fs.open(path, FILE_WRITE);
+  if (!file)
+  {
+    Serial.println("− failed to open file for writing");
+    return;
+  }
+  if (file.print(message))
+  {
+    Serial.println("− file written");
+  }
+  else
+  {
+    Serial.println("− frite failed");
+  }
+}
+
+// get and calculate moisture value
+int readMoisture()
+{
+#define SENSORPIN 35
+  int AirValue = 0;
+  int WaterValue = 4095;
+  int reading = analogRead(SENSORPIN);
+  int count = 0;
+
+  int moisture = map(reading, AirValue, WaterValue, 0, 100);
+
+  if (moisture > 100)
+  {
+    moisture = 100;
+  }
+  else if (moisture == 0)
+  {
+    while (moisture == 0 && count < 10)
     {
-      File file = fs.open(path);
-      if (!file || file.isDirectory())
-      {
-        Serial.println("- failed to open file for reading");
-        return String();
-      }
-
-      String fileContent;
-      while (file.available())
-      {
-        fileContent = file.readStringUntil('\n');
-        break;
-      }
-      return fileContent;
+      moisture = map(reading, AirValue, WaterValue, 0, 100);
+      //Serial.print(moisture + "\t");
+      Serial.print(count);
+      delay(1000);
+      count++;
     }
+  }
+  Serial.println((String) "\nMoisture Reading:\t" + reading + "\nMoisture Percent:\t" + moisture + "%");
+  return moisture;
+}
 
-  // write bluetooth WIFI configuration values to file
-  void writeFile(fs::FS &fs, const char *path, const char *message)
+// get current power level
+float getBattery()
+{
+  const int MAX_ANALOG_VAL = 4095;
+  const float MAX_BATTERY_VOLTAGE = 4.2; // Max LiPoly voltage of a 3.7 battery is 4.2
+
+  int rawValue = analogRead(34);
+
+  // Reference voltage on ESP32 is 1.1V
+  // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html#adc-calibration
+  // See also: https://bit.ly/2zFzfMT
+  float voltageLevel = (rawValue / 4095.0) * 2 * 1.1 * 3.3; // calculate voltage level
+  float batteryFraction = voltageLevel / MAX_BATTERY_VOLTAGE;
+
+  Serial.println((String) "\nBattery Reading:\t" + rawValue + "\nVoltage Reading:\t" + voltageLevel + "\nVoltage Percent:\t" + (batteryFraction * 100) + "%");
+
+  if ((batteryFraction * 100) > 100)
+  {
+    return (100);
+  }
+  else
+  {
+    return (batteryFraction * 100);
+  }
+}
+
+// upload sensor readings to api
+String uploadReadings(int moisture, float battery, String hostname, String sensorName, String sensorLocation)
+{
+  const char *serverName = "http://athome.rodlandfarms.com";
+  String server_path = "/api/esp/data";
+  String server_uri = serverName + server_path;
+
+  // Prepare HTTP POST request data (post data will be determined by sensor that are detected
+  String httpRequestData = "api_token=" + apiKey +
+                           "&hostname=" + hostname +
+                           "&sensor=" + sensorName +
+                           "&location=" + sensorLocation +
+                           "&moisture=" + String(moisture) +
+                           "&batt=" + String(battery);
+  // Send HTTP POST request
+  int httpResponseCode = POST(server_uri, httpRequestData);
+
+  return String(httpRequestData);
+}
+
+// http events for over the air firmware update
+void HttpEvent(HttpEvent_t *event)
+{
+  switch (event->event_id)
+  {
+  case HTTP_EVENT_ERROR:
+    Serial.println("Http Event Error");
+    break;
+  case HTTP_EVENT_ON_CONNECTED:
+    Serial.println("Http Event On Connected");
+    break;
+  case HTTP_EVENT_HEADER_SENT:
+    Serial.println("Http Event Header Sent");
+    break;
+  case HTTP_EVENT_ON_HEADER:
+    Serial.printf("Http Event On Header, key=%s, value=%s\n", event->header_key, event->header_value);
+    break;
+  case HTTP_EVENT_ON_DATA:
+    break;
+  case HTTP_EVENT_ON_FINISH:
+    Serial.println("Http Event On Finish");
+    break;
+  case HTTP_EVENT_DISCONNECTED:
+    Serial.println("Http Event Disconnected");
+    break;
+  }
+}
+
+// over the air firmware update
+void checkUpdate()
+{
+  static const char *url = "https://athome.rodlandfarms.com/firmware.bin";
+  static HttpsOTAStatus_t otastatus = HttpsOTA.status();
+  int i = 0;
+
+  const char *serverName = "https://athome.rodlandfarms.com";
+  String path = "/firmware.json";
+  HTTPClient http;
+  http.useHTTP10(true);
+  http.begin(serverName + path);
+
+  // Send HTTP POST request
+  int httpResponseCode = http.GET();
+  // Parse response
+  DynamicJsonDocument doc(200);
+  deserializeJson(doc, http.getStream());
+
+  if (httpResponseCode == 200)
+  {
+    if (doc["version"].as<String>() != String(currentVersionNumber))
     {
-      Serial.printf("Writing file: %s\r\n", path);
+      String firmwareVersion = doc["version"];
+      Serial.println("\nVersion Mismatch");
+      Serial.print("Server Version: ");
+      Serial.println(firmwareVersion);
+      Serial.print("Running Version: ");
+      Serial.println(currentVersionNumber);
+      Serial.println();
+      HttpsOTA.onHttpEvent(HttpEvent);
+      Serial.println("\nStarting OTA Update");
+      HttpsOTA.begin(url, server_certificate);
 
-      File file = fs.open(path, FILE_WRITE);
-      if (!file)
+      Serial.print("Please Wait it takes some time");
+
+      while (otastatus != HTTPS_OTA_SUCCESS)
       {
-        Serial.println("− failed to open file for writing");
-        return;
-      }
-      if (file.print(message))
-      {
-        Serial.println("− file written");
-      }
-      else
-      {
-        Serial.println("− frite failed");
-      }
-    }
-
-  // get and calculate moisture value
-  int readMoisture()
-    {
-      #define SENSORPIN 35
-      int AirValue = 0;
-      int WaterValue = 4095;
-      int reading = analogRead(SENSORPIN);
-      delay(500);
-
-      Serial.print("\nMoisture Reading: ");
-      Serial.println(reading);
-
-      int moisture = map(reading, AirValue, WaterValue, 0, 100);
-      Serial.print("Moisture Percentage: ");
-      Serial.println(moisture);
-
-      if (moisture > 100){
-          moisture =  100;
-       }
-      return moisture;
-    }
-    
-  // get current power level
-  int getBattery()
-    {
-      //#define SENSORPIN 34
-      Serial.print("\nBattery Reading: ");
-      Serial.println(analogRead(34));
-      Serial.print("Average value from pin: ");
-      Serial.println(BL.pinRead());
-      Serial.print("Volts: ");
-      Serial.println(BL.getBatteryVolts());
-      Serial.print("Battery Percentage: ");
-      Serial.println(BL.getBatteryChargeLevel());
-      Serial.println("");
-
-      return BL.getBatteryChargeLevel();
-    }
-
-  // upload sensor readings to api
-  String uploadReadings(int moisture, int battery)
-    {
-      const char *serverName = "http://athome.rodlandfarms.com";
-      String server_path = "/api/esp/data";
-      String server_uri = serverName + server_path;
-
-      // Prepare HTTP POST request data (post data will be determined by sensor that are detected
-      String httpRequestData = "api_token=" + apiKey +
-                              "&hostname=" + hostname +
-                              "&sensor=" + sensorName +
-                              "&location=" + sensorLocation +
-                              "&moisture=" + String(moisture) +
-                              "&batt=" + String(battery);
-        // Send HTTP POST request
-        int httpResponseCode = POST(server_uri, httpRequestData);
-
-      return String(httpRequestData);   
-    }
-
-  // http events for over the air firmware update
-  void HttpEvent(HttpEvent_t *event)
-    {
-      switch (event->event_id)
-      {
-      case HTTP_EVENT_ERROR:
-        Serial.println("Http Event Error");
-        break;
-      case HTTP_EVENT_ON_CONNECTED:
-        Serial.println("Http Event On Connected");
-        break;
-      case HTTP_EVENT_HEADER_SENT:
-        Serial.println("Http Event Header Sent");
-        break;
-      case HTTP_EVENT_ON_HEADER:
-        Serial.printf("Http Event On Header, key=%s, value=%s\n", event->header_key, event->header_value);
-        break;
-      case HTTP_EVENT_ON_DATA:
-        break;
-      case HTTP_EVENT_ON_FINISH:
-        Serial.println("Http Event On Finish");
-        break;
-      case HTTP_EVENT_DISCONNECTED:
-        Serial.println("Http Event Disconnected");
-        break;
-      }
-    }
-
-  // over the air firmware update
-  void checkUpdate()
-    {
-      static const char *url = "https://athome.rodlandfarms.com/firmware.bin";
-      static HttpsOTAStatus_t otastatus = HttpsOTA.status();
-      int i = 0;
-
-      const char *serverName = "https://athome.rodlandfarms.com";
-      String path = "/firmware.json";
-      HTTPClient http;
-      http.useHTTP10(true);
-      http.begin(serverName + path);
-
-      // Send HTTP POST request
-      int httpResponseCode = http.GET();
-      // Parse response
-      DynamicJsonDocument doc(200);
-      deserializeJson(doc, http.getStream());
-
-      if (httpResponseCode == 200)
-      {
-        if (doc["version"].as<String>() != String(currentVersionNumber))
+        otastatus = HttpsOTA.status();
+        if (i == 3000)
         {
-          String firmwareVersion = doc["version"];
-          Serial.println("\nVersion Mismatch");
-          Serial.print("Server Version: ");
-          Serial.println(firmwareVersion);
-          Serial.print("Running Version: ");
-          Serial.println(currentVersionNumber);
-          Serial.println();
-          HttpsOTA.onHttpEvent(HttpEvent);
-          Serial.println("\nStarting OTA Update");
-          HttpsOTA.begin(url, server_certificate);
-
-          Serial.print("Please Wait it takes some time");
-
-          while (otastatus != HTTPS_OTA_SUCCESS)
-          {
-            otastatus = HttpsOTA.status();
-            if (i == 3000)
-            {
-              Serial.print(".");
-              i = 0;
-            }
-            i++;
-            if (otastatus == HTTPS_OTA_SUCCESS)
-            {
-              Serial.println("Firmware written successfully. Rebooting in 3 seconds...");
-              delay(3000);
-              ESP.restart();
-            }
-            else if (otastatus == HTTPS_OTA_FAIL)
-            {
-              Serial.println("Firmware Upgrade Fail");
-            }
-          }
+          Serial.print(".");
+          i = 0;
+        }
+        i++;
+        if (otastatus == HTTPS_OTA_SUCCESS)
+        {
+          Serial.println("Firmware written successfully. Rebooting in 3 seconds...");
+          delay(3000);
+          ESP.restart();
+        }
+        else if (otastatus == HTTPS_OTA_FAIL)
+        {
+          Serial.println("Firmware Upgrade Fail");
         }
       }
-      else
-      {
-        Serial.println(serverName + path);
-        Serial.print("Error code: ");
-        Serial.println(httpResponseCode);
-      }
-
-      http.end();
     }
+  }
+  else
+  {
+    Serial.println(serverName + path);
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
 
+  http.end();
+}
 
-  void setup()
-    {
-      WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-      Serial.begin(115200);
-      delay(500);
+void setup()
+{
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
+  Serial.begin(115200);
+  delay(500);
 
-      Serial.println("-------------------------------------");
-      Serial.println("       Rodland Farms @HOME           ");
-      Serial.print("       Version: ");
-      Serial.println(currentVersionNumber);
-      Serial.println("-------------------------------------");
-      Serial.println();
-      
-      // set sleep timer
-      esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  Serial.println("-------------------------------------");
+  Serial.println("       Rodland Farms @HOME           ");
+  Serial.print("       Version: ");
+  Serial.println(currentVersionNumber);
+  Serial.println("-------------------------------------");
+  Serial.println();
+  // File paths to save input values permanently
+  const char *SSID_path = "/ssid.txt";
+  const char *password_path = "/pass.txt";
+  const char *sensorName_path = "/name.txt";
+  const char *sensorLocation_path = "/location.txt";
 
-      // set up OTA firmware update URL
-      esp32FOTA.checkURL = "http://athome.rodlandfarms.com/firmware.json";
+  esp_sleep_wakeup_cause_t wakeup_reason;
+#define uS_TO_S_FACTOR 1000000UL /* Conversion factor for micro seconds to seconds */
+#define TIME_TO_SLEEP 60         /* Time ESP32 will go to sleep (in seconds) 1min */
+  // #define TIME_TO_SLEEP 3600 /* Time ESP32 will go to sleep (in seconds) 1hr */
+  // #define TIME_TO_SLEEP 144000  /* Time ESP32 will go to sleep (in seconds) 4hrs */
+  //  set sleep timer
+  esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
 
-      // check and load SPIFFS file system
-      SPIFFS.begin(true);
-      if (!SPIFFS.begin((FORMAT_SPIFFS_IF_FAILED)))
-      {
-        Serial.println("An Error has occurred while mounting SPIFFS");
-        return;
-      }
+  // set up OTA firmware update URL
+  esp32FOTA.checkURL = "http://athome.rodlandfarms.com/firmware.json";
 
-      // get moisture and battery level readings
-      int moisture = readMoisture();
-      int battery = getBattery();
+  // check and load SPIFFS file system
+  SPIFFS.begin(true);
+  if (!SPIFFS.begin((FORMAT_SPIFFS_IF_FAILED)))
+  {
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
 
-      // if moisture value is not 0 
-      if (moisture != 0) {
-        prov_main(); // if provisioned start wifi, otherwise provision wifi via ble
+int moisture = readMoisture();
+if (moisture != 0){
+  prov_main(); // if provisioned start wifi, otherwise provision wifi via ble
+  // get moisture and battery level readings
+  float battery = getBattery();
 
-        hostname = WiFi.macAddress();
-        hostname.replace(":", ""); // remove : from mac address
+  String hostname = WiFi.macAddress();
+  hostname.replace(":", ""); // remove : from mac address
+  WiFi.setHostname("Rodland Farms");
 
-        sensorName = readFile(SPIFFS, sensorName_path).c_str();
-        sensorLocation = readFile(SPIFFS, sensorLocation_path).c_str();
-        
-        uploadReadings(moisture, battery);
-      }
-      Serial.println("Going to sleep now");
-      esp_deep_sleep_start();
-      }
+  String sensorName = readFile(SPIFFS, sensorName_path).c_str();
+  String sensorLocation = readFile(SPIFFS, sensorLocation_path).c_str();
 
-  void loop()
-    {}
+  uploadReadings(moisture, battery, hostname, sensorName, sensorLocation);
+  //checkUpdate(); // check if firmware update is available
+}
+  Serial.println("\nGoing to sleep now");
+  esp_deep_sleep_start();
+}
+
+void loop()
+{
+}

@@ -10,7 +10,10 @@
 			"random": "cpp",
 			"limits": "cpp",
 			"*.tcc": "cpp",
-			"type_traits": "cpp"
+			"type_traits": "cpp",
+			"functional": "cpp",
+			"istream": "cpp",
+			"ostream": "cpp"
 		}
 	}
 }
