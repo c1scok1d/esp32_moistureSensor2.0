@@ -132,26 +132,19 @@ int readMoisture()
 #define SENSORPIN 35
   int AirValue = 0;
   int WaterValue = 4095;
-  int reading = analogRead(SENSORPIN);
   int count = 0;
+  int reading = analogRead(SENSORPIN);
+
+  if (reading ==0){
+    while(reading ==0 && count < 10){
+      delay(1000);
+      reading = analogRead(SENSORPIN);
+      Serial.print(count);
+    }
+  }
 
   int moisture = map(reading, AirValue, WaterValue, 0, 100);
 
-  if (moisture > 100)
-  {
-    moisture = 100;
-  }
-  else if (moisture == 0)
-  {
-    while (moisture == 0 && count < 10)
-    {
-      moisture = map(reading, AirValue, WaterValue, 0, 100);
-      //Serial.print(moisture + "\t");
-      Serial.print(count);
-      delay(1000);
-      count++;
-    }
-  }
   Serial.println((String) "\nMoisture Reading:\t" + reading + "\nMoisture Percent:\t" + moisture + "%");
   return moisture;
 }
@@ -317,8 +310,8 @@ void setup()
   const char *sensorLocation_path = "/location.txt";
 
   esp_sleep_wakeup_cause_t wakeup_reason;
-#define uS_TO_S_FACTOR 1000000UL /* Conversion factor for micro seconds to seconds */
-#define TIME_TO_SLEEP 60         /* Time ESP32 will go to sleep (in seconds) 1min */
+  #define uS_TO_S_FACTOR 1000000UL /* Conversion factor for micro seconds to seconds */
+  #define TIME_TO_SLEEP 60         /* Time ESP32 will go to sleep (in seconds) 1min */
   // #define TIME_TO_SLEEP 3600 /* Time ESP32 will go to sleep (in seconds) 1hr */
   // #define TIME_TO_SLEEP 144000  /* Time ESP32 will go to sleep (in seconds) 4hrs */
   //  set sleep timer
@@ -334,23 +327,22 @@ void setup()
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
-
-int moisture = readMoisture();
-if (moisture != 0){
   prov_main(); // if provisioned start wifi, otherwise provision wifi via ble
-  // get moisture and battery level readings
-  float battery = getBattery();
+  int moisture = readMoisture();
+  if (moisture != 0){
+    // get moisture and battery level readings
+    float battery = getBattery();
 
-  String hostname = WiFi.macAddress();
-  hostname.replace(":", ""); // remove : from mac address
-  WiFi.setHostname("Rodland Farms");
+    String hostname = WiFi.macAddress();
+    hostname.replace(":", ""); // remove : from mac address
+    WiFi.setHostname("Rodland Farms");
 
-  String sensorName = readFile(SPIFFS, sensorName_path).c_str();
-  String sensorLocation = readFile(SPIFFS, sensorLocation_path).c_str();
+    String sensorName = readFile(SPIFFS, sensorName_path).c_str();
+    String sensorLocation = readFile(SPIFFS, sensorLocation_path).c_str();
 
-  uploadReadings(moisture, battery, hostname, sensorName, sensorLocation);
-  //checkUpdate(); // check if firmware update is available
-}
+    uploadReadings(moisture, battery, hostname, sensorName, sensorLocation);
+    //checkUpdate(); // check if firmware update is available
+  }
   Serial.println("\nGoing to sleep now");
   esp_deep_sleep_start();
 }
