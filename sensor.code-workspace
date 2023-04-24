@@ -1,0 +1,19 @@
+{
+	"folders": [
+		{
+			"path": "../../../esp32-soil-moisture-sensor-master/Software"
+		},
+		{
+			"name": "esp32_moistureSensor2.0",
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"random": "cpp",
+			"limits": "cpp",
+			"*.tcc": "cpp",
+			"type_traits": "cpp"
+		}
+	}
+}

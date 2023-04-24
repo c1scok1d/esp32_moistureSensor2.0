@@ -13,7 +13,7 @@
 #include <WiFiClientSecure.h>
 #include <SPIFFS.h>
 #include <esp32fota.h>
-#include <Arduino.h>
+//#include <Arduino.h>
 #include "SPI.h"
 #include <Wire.h>
 #include <DHT.h>
@@ -32,6 +32,8 @@
 #include "freertos/timers.h"
 #include "freertos/event_groups.h"
 #include "esp_http_client.h"
+#include "driver/adc.h"
+#include "esp_adc_cal.h"
 
 // format if not spiffs
 #define FORMAT_SPIFFS_IF_FAILED true
@@ -39,6 +41,7 @@
 String apiKey = "gwGWZKjADUeHe1f06muhnhdt38pmVwBaNuiyL18WvLHLMeFUZYcqOZqsgvyl";
 
 WiFiClient client;
+static esp_adc_cal_characteristics_t adc1_chars;
 
 // Variables to save values from bluetooh setup
 // String hostname;
@@ -129,24 +132,20 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
 // get and calculate moisture value
 int readMoisture()
 {
-#define SENSORPIN 35
-  int AirValue = 0;
-  int WaterValue = 4095;
   int count = 0;
-  int reading = analogRead(SENSORPIN);
+  int reading;
+  int foo;
 
-  if (reading ==0){
-    while(reading ==0 && count < 10){
-      delay(1000);
-      reading = analogRead(SENSORPIN);
-      Serial.print(count);
+  while(count < 60){
+      reading = adc1_get_raw(ADC1_CHANNEL_7);
+      foo = analogRead(35);
+      Serial.println((String) count + ":\t" + reading + ":\t" + foo + ":\t" + map(reading, 0, 4095, 0, 100) + "%");
+      count ++;
+      delay(3000);
     }
-  }
 
-  int moisture = map(reading, AirValue, WaterValue, 0, 100);
-
-  Serial.println((String) "\nMoisture Reading:\t" + reading + "\nMoisture Percent:\t" + moisture + "%");
-  return moisture;
+  Serial.println((String)"Moisture Reading:\t" + reading + "\nMoisture Percent:\t" + map(reading, 0, 4095, 0, 100) + "%");
+  return map(reading, 0, 4095, 0, 100);
 }
 
 // get current power level
@@ -309,6 +308,7 @@ void setup()
   const char *sensorName_path = "/name.txt";
   const char *sensorLocation_path = "/location.txt";
 
+
   esp_sleep_wakeup_cause_t wakeup_reason;
   #define uS_TO_S_FACTOR 1000000UL /* Conversion factor for micro seconds to seconds */
   #define TIME_TO_SLEEP 60         /* Time ESP32 will go to sleep (in seconds) 1min */
@@ -316,6 +316,9 @@ void setup()
   // #define TIME_TO_SLEEP 144000  /* Time ESP32 will go to sleep (in seconds) 4hrs */
   //  set sleep timer
   esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP * uS_TO_S_FACTOR);
+  //adc1_config_width(ADC_WIDTH_BIT_12);
+  //adc1_config_channel_atten(ADC1_CHANNEL_7, ADC_ATTEN_DB_11);
+  //analogReadResolution(12);
 
   // set up OTA firmware update URL
   esp32FOTA.checkURL = "http://athome.rodlandfarms.com/firmware.json";
