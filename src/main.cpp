@@ -34,7 +34,7 @@
 #include "esp_http_client.h"
 #include "driver/adc.h"
 #include "esp_adc_cal.h"
-
+#include <stdlib.h>
 // format if not spiffs
 #define FORMAT_SPIFFS_IF_FAILED true
 
@@ -133,15 +133,19 @@ void writeFile(fs::FS &fs, const char *path, const char *message)
 int readMoisture()
 {
   int count = 0;
-  int reading;
-  int foo;
+  int reading, analog_reading;
+
 
   while(count < 60){
-      reading = adc1_get_raw(ADC1_CHANNEL_7);
-      foo = analogRead(35);
-      Serial.println((String) count + ":\t" + reading + ":\t" + foo + ":\t" + map(reading, 0, 4095, 0, 100) + "%");
+      //reading = adc1_get_raw(ADC1_CHANNEL_7);
+      //foo = analogRead(35);
+      reading =  adc1_get_raw(ADC1_CHANNEL_7);
+      delay(1000);
+      analog_reading = analogRead(35);
+      //uint32_t voltage = (analogRead(35) / 4095.0) * 3.3 * (1100 / vref) * calibration;
+      Serial.println((String) count + ":\t" + reading + ":\t" + analog_reading + ":\t" + map(reading, 0, 4095, 0, 100) + "%");
       count ++;
-      delay(3000);
+      delay(1000);
     }
 
   Serial.println((String)"Moisture Reading:\t" + reading + "\nMoisture Percent:\t" + map(reading, 0, 4095, 0, 100) + "%");
